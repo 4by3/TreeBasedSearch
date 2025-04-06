@@ -5,12 +5,13 @@ from parse_input import parse_input
 # Import algorithms here
 from algorithms.dfs import dfs
 from algorithms.greedy_bfs import greedy_bfs
+from algorithms.multiple_pointer_bfs import multiple_pointer_bfs
 from algorithms.dijkstra import dijkstra
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python search.py <filename> <algorithm>\nAvailable algorithms: DFS, GreedyBFS, Dijkstra")
+        print("Usage: python search.py <filename> <algorithm>\nAvailable algorithms: DFS, GreedyBFS, Dijkstra, MultipleBFS")
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -28,6 +29,8 @@ if __name__ == "__main__":
         goal, number_of_nodes, path = dijkstra(graph, origin, goals)
     elif method == "GREEDYBFS":
         goal, number_of_nodes, path = greedy_bfs(graph, origin, goals)
+    elif method == "MULTIPLEBFS":
+        goal, number_of_nodes, path = multiple_pointer_bfs(graph, origin, goals)
     else:
         print("Invalid algorithm")
         sys.exit(1)
