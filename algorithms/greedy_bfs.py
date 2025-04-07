@@ -6,7 +6,7 @@ def greedy_bfs(graph, nodes, start, goals):
     heapq.heappush(priority_queue, (heuristic_euclidean(start, nodes, goals), start, [start]))
 
     visited = set()
-    node_count = 0
+    number_of_nodes = 0
 
     while priority_queue:
         _, current_node, path = heapq.heappop(priority_queue)
@@ -14,13 +14,13 @@ def greedy_bfs(graph, nodes, start, goals):
         if current_node in visited:
             continue
         visited.add(current_node)
-        node_count += 1
+        number_of_nodes += 1
 
         if current_node in goals:
-            return current_node, node_count, path
+            return current_node, number_of_nodes, path
 
         for neighbor, _ in graph.get(current_node, []):
             if neighbor not in visited:
                 heapq.heappush(priority_queue, (heuristic_euclidean(neighbor, nodes, goals), neighbor, path + [neighbor]))
 
-    return None, node_count, []
+    return None, number_of_nodes, []
