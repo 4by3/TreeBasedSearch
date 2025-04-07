@@ -1,32 +1,26 @@
 import heapq
+from algorithms.heuristic_euclidean import heuristic_euclidean
 
-def greedy_bfs(graph, start, goals):
-    pq = [(0, start)]  # Priority queue (h(n), node)
-    came_from = {}  # Path tracking
+def greedy_bfs(graph, nodes, start, goals):
+    priority_queue = []
+    heapq.heappush(priority_queue, (heuristic_euclidean(start, nodes, goals), start, [start]))
+
     visited = set()
-    number_of_nodes = 0
+    node_count = 0
 
-    while pq:
-        _, node = heapq.heappop(pq)
-        if node in visited:
+    while priority_queue:
+        _, current_node, path = heapq.heappop(priority_queue)
+
+        if current_node in visited:
             continue
+        visited.add(current_node)
+        node_count += 1
 
-        visited.add(node)
-        number_of_nodes += 1
+        if current_node in goals:
+            return current_node, node_count, path
 
-        if node in goals:
-            return node, number_of_nodes, reconstruct_path(came_from, node)
-
-        for neighbor, _ in graph.get(node, []):
+        for neighbor, _ in graph.get(current_node, []):
             if neighbor not in visited:
-                heapq.heappush(pq, (0, neighbor))  # Greedy BFS only uses heuristic
-                came_from[neighbor] = node
+                heapq.heappush(priority_queue, (heuristic_euclidean(neighbor, nodes, goals), neighbor, path + [neighbor]))
 
-    return None, number_of_nodes, []  # No path found
-
-def reconstruct_path(came_from, node):
-    path = [node]
-    while node in came_from:
-        node = came_from[node]
-        path.append(node)
-    return path[::-1]  # Reverse for correct order
+    return None, node_count, []
