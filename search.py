@@ -4,6 +4,7 @@ from parse_input import parse_input
 
 # Import algorithms here
 from algorithms.dfs import dfs
+from algorithms.bfs import bfs
 from algorithms.greedy_bfs import greedy_bfs
 from algorithms.beam import beam
 from algorithms.dijkstra import dijkstra
