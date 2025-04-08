@@ -7,13 +7,17 @@ def bfs(graph, start, goals):
 
     while queue:
         cost, node, path = queue.popleft()
+
+        if node in visited:
+            continue
+        visited.add(node)
         number_of_nodes += 1
+
 
         if node in goals:
             return node, number_of_nodes, path, cost
 
-        if node not in visited:
-            visited.add(node)
+        if node in graph:
             for neighbor, node_cost in sorted(graph[node]):
                 if neighbor not in visited:
                     queue.append((cost + node_cost, neighbor, path + [neighbor]))
