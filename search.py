@@ -7,7 +7,7 @@ from algorithms.dfs import dfs
 from algorithms.greedy_bfs import greedy_bfs
 from algorithms.beam import beam
 from algorithms.dijkstra import dijkstra
-
+from algorithms.astar import astar
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -31,6 +31,8 @@ if __name__ == "__main__":
         goal, number_of_nodes, path = greedy_bfs(graph, nodes, origin, goals)
     elif method == "BEAM":
         goal, number_of_nodes, path = beam(graph, nodes, origin, goals)
+    elif method == "ASTAR":
+        goal, number_of_nodes, path = astar(graph, nodes, origin, goals)
     else:
         print("Invalid algorithm")
         sys.exit(1)
