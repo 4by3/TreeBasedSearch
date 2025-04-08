@@ -11,7 +11,7 @@ from algorithms.astar import astar
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python search.py <filename> <algorithm>\nAvailable algorithms: DFS, GreedyBFS, Dijkstra, Beam")
+        print("Usage: python search.py <filename> <algorithm>\nAvailable algorithms: DFS, GreedyBFS, Dijkstra, Beam, Astar")
         sys.exit(1)
 
     filename = sys.argv[1]
