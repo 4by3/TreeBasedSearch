@@ -1,21 +1,21 @@
 from collections import deque
 
 def bfs(graph, start, goals):
-    queue = deque([(start, [start])])  # (node, path to node)
+    queue = deque([(0, start, [start])])  # (node, path to node)
     visited = set()
     number_of_nodes = 0
 
     while queue:
-        current, path = queue.popleft()
+        cost, node, path = queue.popleft()
         number_of_nodes += 1
 
-        if current in goals:
-            return current, number_of_nodes, path
+        if node in goals:
+            return node, number_of_nodes, path, cost
 
-        if current not in visited:
-            visited.add(current)
-            for neighbor, _ in sorted(graph.get(current, [])):
-                if neighbor not in visited and neighbor not in [n for n, _ in queue]:
-                    queue.append((neighbor, path + [neighbor]))
+        if node not in visited:
+            visited.add(node)
+            for neighbor, node_cost in sorted(graph[node]):
+                if neighbor not in visited:
+                    queue.append((cost + node_cost, neighbor, path + [neighbor]))
 
     return None, number_of_nodes, []
