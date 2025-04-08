@@ -16,19 +16,19 @@ def astar(graph, nodes, start, goals):
     visited = set()
     
     while priority_queue:
-        _, current_node, path = heapq.heappop(priority_queue)
+        node_cost, current_node, path = heapq.heappop(priority_queue)
         
         if current_node in visited:
             continue
         visited.add(current_node)
-        number_of_nodes =+ 1
+        number_of_nodes += 1
         
         if current_node in goals:
-            return current_node, number_of_nodes, path
+            return current_node, number_of_nodes, path, node_cost
         
-        for neighbor, _ in graph.get(current_node, []):
+        for neighbor, edge_cost in graph.get(current_node, []):
             if neighbor not in visited:
-                heapq.heappush(priority_queue, priority(graph, neighbor, nodes, goals, total_cost), neighbor, path + [neighbor])
+                heapq.heappush(priority_queue, (heuristic_euclidean(neighbor, nodes, goals) + edge_cost + total_cost, neighbor, path + [neighbor]))
     
     return None, number_of_nodes, []
                 
@@ -36,7 +36,7 @@ def astar(graph, nodes, start, goals):
 
 def priority(graph, neighbor, nodes, goals, total_cost):
 
-    priority = heuristic_euclidean(neighbor, nodes, goals) + graph[neighbor, 1] + total_cost
+    priority = heuristic_euclidean(neighbor, nodes, goals) + graph[neighbor][1] + total_cost
     
     return priority
  
