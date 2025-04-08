@@ -30,4 +30,4 @@ def astar(graph, nodes, start, goals):
                 edge_fNode = heuristic_euclidean(neighbor, nodes, goals) + cost + edge_cost
                 heapq.heappush(priority_queue, (edge_fNode, cost + edge_cost, neighbor, path + [neighbor]))
     
-    return None, number_of_nodes, []
+    return None, number_of_nodes, [], None

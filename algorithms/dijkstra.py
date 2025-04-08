@@ -24,7 +24,7 @@ def dijkstra(graph, start, goals):
                     shortest_paths[neighbor] = new_cost
                     heapq.heappush(priority_queue, (new_cost, neighbor, path + [neighbor]))
 
-    return None, number_of_nodes, [] 
+    return None, number_of_nodes, [], None
 
 
 

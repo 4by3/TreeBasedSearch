@@ -23,4 +23,4 @@ def greedy_bfs(graph, nodes, start, goals):
             if neighbor not in visited:
                 heapq.heappush(priority_queue, (heuristic_euclidean(neighbor, nodes, goals), cost + node_cost, neighbor, path + [neighbor]))
 
-    return None, number_of_nodes, []
+    return None, number_of_nodes, [], None

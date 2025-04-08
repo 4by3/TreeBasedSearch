@@ -26,4 +26,4 @@ def beam(graph, nodes, start, goals, beam_width=2):
         # Prune priority queue based on beam
         priority_queue = heapq.nsmallest(beam_width, priority_queue)
 
-    return None, number_of_nodes, []
+    return None, number_of_nodes, [], None

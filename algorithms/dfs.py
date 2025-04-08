@@ -19,4 +19,4 @@ def dfs(graph, start, goals):
                 if neighbor not in visited:
                     stack.append((cost + node_cost, neighbor, path + [neighbor]))
 
-    return None, number_of_nodes, []  # No valid path found
+    return None, number_of_nodes, [], None

@@ -18,4 +18,4 @@ def bfs(graph, start, goals):
                 if neighbor not in visited:
                     queue.append((cost + node_cost, neighbor, path + [neighbor]))
 
-    return None, number_of_nodes, []
+    return None, number_of_nodes, [], None
