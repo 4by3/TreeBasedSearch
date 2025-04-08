@@ -24,6 +24,9 @@ if __name__ == "__main__":
 
     graph, nodes, origin, goals = parse_input(filename)
 
+    # temp cost
+    cost = 69
+
     if method == "DFS":
         goal, number_of_nodes, path = dfs(graph, origin, goals)
     elif method == "BFS":
@@ -35,14 +38,14 @@ if __name__ == "__main__":
     elif method == "BEAM":
         goal, number_of_nodes, path = beam(graph, nodes, origin, goals)
     elif method == "ASTAR":
-        goal, number_of_nodes, path = astar(graph, nodes, origin, goals)
+        goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals)
     else:
         print("Invalid algorithm")
         sys.exit(1)
 
     print(f"Filename: {filename} Method: {method}")
     if path:
-        print(f"Goal: {goal} Total Nodes: {number_of_nodes}")
+        print(f"Goal: {goal} Total Nodes: {number_of_nodes} Cost: {cost}")
         print("Path: " + " → ".join(map(str, path)))
     else:
         print("No path found.")
