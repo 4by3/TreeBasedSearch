@@ -31,5 +31,5 @@ Edges:
 
 Origin:
 1
-Destinations
+Destinations:
 6
