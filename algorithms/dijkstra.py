@@ -15,7 +15,7 @@ def dijkstra(graph, start, goals):
         number_of_nodes += 1
 
         if node in goals:
-            return node, number_of_nodes, path
+            return node, number_of_nodes, path, cost
 
         if node in graph:
             for neighbor, edge_cost in graph[node]:
