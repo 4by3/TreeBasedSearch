@@ -33,13 +33,6 @@ def astar(graph, nodes, start, goals):
     return None, number_of_nodes, []
                 
 
-
-def priority(graph, neighbor, nodes, goals, total_cost):
-
-    priority = heuristic_euclidean(neighbor, nodes, goals) + graph[neighbor][1] + total_cost
-    
-    return priority
- 
         
     
     
