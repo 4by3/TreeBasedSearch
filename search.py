@@ -28,15 +28,15 @@ if __name__ == "__main__":
     cost = 69
 
     if method == "DFS":
-        goal, number_of_nodes, path = dfs(graph, origin, goals)
+        goal, number_of_nodes, path, cost = dfs(graph, origin, goals)
     elif method == "BFS":
-        goal, number_of_nodes, path = bfs(graph, origin, goals)
+        goal, number_of_nodes, path, cost = bfs(graph, origin, goals)
     elif method == "DIJKSTRA":
-        goal, number_of_nodes, path = dijkstra(graph, origin, goals)
+        goal, number_of_nodes, path, cost = dijkstra(graph, origin, goals)
     elif method == "GREEDYBFS":
-        goal, number_of_nodes, path = greedy_bfs(graph, nodes, origin, goals)
+        goal, number_of_nodes, path, cost = greedy_bfs(graph, nodes, origin, goals)
     elif method == "BEAM":
-        goal, number_of_nodes, path = beam(graph, nodes, origin, goals)
+        goal, number_of_nodes, path, cost = beam(graph, nodes, origin, goals)
     elif method == "ASTAR":
         goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals)
     else:
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     print(f"Filename: {filename} Method: {method}")
     if path:
-        print(f"Goal: {goal} Total Nodes: {number_of_nodes} Cost: {cost}")
+        print(f"Goal: {goal} || Total Nodes: {number_of_nodes} || Cost: {cost}")
         print("Path: " + " → ".join(map(str, path)))
     else:
         print("No path found.")
