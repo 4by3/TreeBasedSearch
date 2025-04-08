@@ -1,53 +1,49 @@
 
 import heapq
-import math
+from algorithms.heuristic_euclidean import heuristic_euclidean
 
-#not fuctional yet
-
-def astar(graph, start, goals, nodes):
+def astar(graph, nodes, start, goals):
     
-    map()
     #need to do f(n) = g(n) + h(n)
     #f(n) = estimate distance from end node , g(n) = total cost so far to reach this node. , h(n) = heuristic score. \
     #Need to account for multiple goals: select the goal closest to the origin
     
-    stack = [0, start, [start]]    
+    priority_queue = []    
+    heapq.heappush(priority_queue, (heuristic_euclidean(start, nodes, goals), start, [start]))
+    
     total_cost = 0
     number_of_nodes = 0
+    visited = set()
     
-    while stack:
+    while priority_queue:
+        _, current_node, path = heapq.heappop(priority_queue)
         
+        if current_node in visited:
+            continue
+        visited.add(current_node)
+        number_of_nodes =+ 1
         
+        if current_node in goals:
+            return current_node, number_of_nodes, path
         
-        
-        if nodes in goals:
-            
-            return
-        
+        for neighbor, _ in graph.get(current_node, []):
+            if neighbor not in visited:
+                heapq.heappush(priority_queue, priority(graph, neighbor, nodes, goals, total_cost), neighbor, path + [neighbor])
     
+    return None, number_of_nodes, []
+                
+
+
+def priority(graph, neighbor, nodes, goals, total_cost):
+
+    priority = heuristic_euclidean(neighbor, nodes, goals) + graph[neighbor, 1] + total_cost
     
+    return priority
+ 
+        
     
     
 
-
-
-
-def heuristic(nodes, current_node, goals):
-    
-    return min(Euclidean_distance(nodes[current_node], nodes[goals]) for g in goals)
-#Min means its selecting the closest goal node.
-
-def Euclidean_distance(CNC, GNC,):
-    
-    return math.sqrt((GNC[0]-CNC[0])^2 + (GNC[1]-CNC[1])^2)
-    
-    # CNC = Current Node Coordinates
-    # GNC = Goal Node Coordinates
-    
-    #distance between 2 points: current node and goal node (straight line calc) sqrt((x2-x1)^2+(y2-y1)^2)
-    #Using Euclidean distance method for Heuristic 
-    #method from: https://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html
-    
     
 
 
