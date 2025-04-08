@@ -25,6 +25,8 @@ if __name__ == "__main__":
 
     if method == "DFS":
         goal, number_of_nodes, path = dfs(graph, origin, goals)
+    elif method == "BFS":
+        goal, number_of_nodes, path = bfs(graph, origin, goals)
     elif method == "DIJKSTRA":
         goal, number_of_nodes, path = dijkstra(graph, origin, goals)
     elif method == "GREEDYBFS":
