@@ -9,7 +9,7 @@ def beam(graph, nodes, start, goals, beam_width=2):
     number_of_nodes = 0
 
     while priority_queue:
-        _, current_node, path = heapq.heappop(priority_queue)
+        cost, current_node, path = heapq.heappop(priority_queue)
 
         if current_node in visited:
             continue
@@ -17,7 +17,7 @@ def beam(graph, nodes, start, goals, beam_width=2):
         number_of_nodes += 1
 
         if current_node in goals:
-            return current_node, number_of_nodes, path
+            return current_node, number_of_nodes, path, cost
 
         for neighbor, _ in graph.get(current_node, []):
             if neighbor not in visited:
