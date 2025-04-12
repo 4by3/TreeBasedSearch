@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 from parse_input import parse_input
+from select_heuristic import SelectHeuristic
 
 # Import algorithms here
 from algorithms.dfs import dfs
@@ -34,11 +35,14 @@ if __name__ == "__main__":
     elif method == "DIJKSTRA":
         goal, number_of_nodes, path, cost = dijkstra(graph, origin, goals)
     elif method == "GREEDYBFS":
-        goal, number_of_nodes, path, cost = greedy_bfs(graph, nodes, origin, goals)
+        heuristic = SelectHeuristic()
+        goal, number_of_nodes, path, cost = greedy_bfs(graph, nodes, origin, goals, heuristic)
     elif method == "BEAM":
-        goal, number_of_nodes, path, cost = beam(graph, nodes, origin, goals)
+        heuristic = SelectHeuristic()
+        goal, number_of_nodes, path, cost = beam(graph, nodes, origin, goals, heuristic)
     elif method == "ASTAR":
-        goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals)
+        heuristic = SelectHeuristic()
+        goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals, heuristic)
     else:
         print("Invalid algorithm")
         sys.exit(1)
