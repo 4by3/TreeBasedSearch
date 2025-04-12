@@ -2,7 +2,7 @@ import heapq
 from algorithms.heuristic_euclidean import heuristic_euclidean
 from algorithms.heuristic_manhattan import heuristic_manhattan
 
-def greedy_bfs(graph, nodes, start, goals):
+def greedy_bfs(graph, nodes, start, goals, heuristic):
 
     if heuristic == "M":
         fHeuristic = heuristic_manhattan(start, nodes, goals)
