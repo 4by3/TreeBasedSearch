@@ -1,9 +1,16 @@
 import heapq
 from algorithms.heuristic_euclidean import heuristic_euclidean
+from algorithms.heuristic_manhattan import heuristic_manhattan
 
 def beam(graph, nodes, start, goals):
+    
+    if heuristic == "M":
+        fHeuristic = heuristic_manhattan(start, nodes, goals)
+    elif heuristic == "E":
+        fHeuristic = heuristic_euclidean(start, nodes, goals)
+        
     priority_queue = []
-    heapq.heappush(priority_queue, (heuristic_euclidean(start, nodes, goals), 0, start, [start]))
+    heapq.heappush(priority_queue, (fHeuristic, 0, start, [start]))
 
     visited = set()
     number_of_nodes = 0
@@ -24,7 +31,13 @@ def beam(graph, nodes, start, goals):
 
         for neighbor, node_cost in graph.get(current_node, []):
             if neighbor not in visited:
-                heapq.heappush(priority_queue, (heuristic_euclidean(neighbor, nodes, goals), cost + node_cost, neighbor, path + [neighbor]))
+
+                if heuristic == "M":
+                    cHeuristic = heuristic_manhattan(neighbor, nodes, goals)
+                elif heuristic == "E":
+                    cHeuristic = heuristic_euclidean(neighbor, nodes, goals)
+                    
+                heapq.heappush(priority_queue, (cHeuristic, cost + node_cost, neighbor, path + [neighbor]))
 
         # Prune priority queue based on beam
         priority_queue = heapq.nsmallest(beam_width, priority_queue)
