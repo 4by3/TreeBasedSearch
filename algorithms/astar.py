@@ -1,6 +1,7 @@
 
 import heapq
 from algorithms.heuristic_euclidean import heuristic_euclidean
+from algorithms.heuristic_manhattan import heuristic_manhattan
 
 def astar(graph, nodes, start, goals, heuristic):
 
