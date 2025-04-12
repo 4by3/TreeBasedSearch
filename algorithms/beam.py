@@ -2,7 +2,7 @@ import heapq
 from algorithms.heuristic_euclidean import heuristic_euclidean
 from algorithms.heuristic_manhattan import heuristic_manhattan
 
-def beam(graph, nodes, start, goals):
+def beam(graph, nodes, start, goals, heuristic):
     
     if heuristic == "M":
         fHeuristic = heuristic_manhattan(start, nodes, goals)
