@@ -2,14 +2,15 @@
 import heapq
 from algorithms.heuristic_euclidean import heuristic_euclidean
 
-def astar(graph, nodes, start, goals):
-    
-    #need to do f(n) = g(n) + h(n)
-    #f(n) = estimate distance from end node , g(n) = total cost so far to reach this node. , h(n) = heuristic score. \
-    #Need to account for multiple goals: select the goal closest to the origin
-    
+def astar(graph, nodes, start, goals, heuristic):
+
+    if heuristic == "M":
+        fHeuristic = heuristic_manhattan(start, nodes, goals)
+    elif heuristic == "E":
+        fHeuristic = heuristic_euclidean(start, nodes, goals)
+        
     priority_queue = []    
-    heapq.heappush(priority_queue, (heuristic_euclidean(start, nodes, goals), 0, start, [start]))
+    heapq.heappush(priority_queue, (fHeuristic, 0, start, [start]))
     
     number_of_nodes = 0
     visited = set()
@@ -27,7 +28,11 @@ def astar(graph, nodes, start, goals):
         
         for neighbor, edge_cost in graph.get(current_node, []):
             if neighbor not in visited:
-                edge_fNode = heuristic_euclidean(neighbor, nodes, goals) + cost + edge_cost
+                if heuristic == "M":
+                    edge_fNode = heuristic_manhattan(neighbor, nodes, goals) + cost + edge_cost
+                elif heuristic == "E":
+                    edge_fNode = heuristic_euclidean(neighbor, nodes, goals) + cost + edge_cost
+                
                 heapq.heappush(priority_queue, (edge_fNode, cost + edge_cost, neighbor, path + [neighbor]))
     
     return None, number_of_nodes, [], None
