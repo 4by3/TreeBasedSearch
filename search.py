@@ -42,10 +42,9 @@ if __name__ == "__main__":
     elif method == "BEAMMANHATTAN":
         goal, number_of_nodes, path, cost = beam(graph, nodes, origin, goals, "M")
     elif method == "ASTAR":
-        heuristic = SelectHeuristic()
         goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals, "E")
     elif method == "ASTARMANHATTAN":
-        goal, number_of_nodes, path, cost = beam(graph, nodes, origin, goals, "M")
+        goal, number_of_nodes, path, cost = astar(graph, nodes, origin, goals, "M")
     else:
         print("Invalid algorithm")
         sys.exit(1)
