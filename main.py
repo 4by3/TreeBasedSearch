@@ -4,6 +4,7 @@ import networkx as nx
 from parse_train import load_and_process_data, prepare_time_series_data, create_traffic_network
 from train import LSTMModel, GRUModel, train_model
 from algorithms.astar import astar
+import torch
 
 def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     origin = int(origin)
