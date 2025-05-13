@@ -1,6 +1,6 @@
 from pathlib import Path
 import sys
-from parse_input import parse_input
+from parse_search import parse_search
 
 # Import algorithms here
 from algorithms.dfs import dfs
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         print(f"Error: File '{filename}' does not exist. Make sure to have 'tests/' before file name")
         sys.exit(1)
 
-    graph, nodes, origin, goals = parse_input(filename)
+    graph, nodes, origin, goals = parse_search(filename)
 
     # temp cost
     cost = 69
