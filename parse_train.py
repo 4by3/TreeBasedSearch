@@ -109,14 +109,17 @@ def flow_to_speed(flow):
         return min(speed1, speed2)
 
 def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
+    # Initializing the graph
     graph = nx.Graph()
     unique_site_ids = np.unique([int(site_id) for site_id in site_ids])
     
+    # Adding nodes with their geographic positions
     for site_id, latitude, longitude in locations:
         site_id = int(site_id)
         if site_id in unique_site_ids:
             graph.add_node(site_id, pos=(latitude, longitude))
     
+    # Calculating average flows for each site
     site_to_flows = {}
     for site_id in unique_site_ids:
         indices = np.where(all_site_ids == site_id)[0]
@@ -126,27 +129,79 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
         else:
             site_to_flows[site_id] = np.zeros(predicted_flows.shape[1])
     
-    earth_radius = 6371e3
-    max_distance = 5
-    for i, site_id_a in enumerate(unique_site_ids):
-        for j, site_id_b in enumerate(unique_site_ids[i+1:], i+1):
-            coords_a = locations[np.where(site_ids == site_id_a)[0][0]][1:3]
-            coords_b = locations[np.where(site_ids == site_id_b)[0][0]][1:3]
-            latitude_a, longitude_a = coords_a
-            latitude_b, longitude_b = coords_b
-            
-            phi_a = math.radians(latitude_a)
-            phi_b = math.radians(latitude_b)
-            delta_phi = math.radians(latitude_b - latitude_a)
-            delta_lambda = math.radians(longitude_b - longitude_a)
-            
-            haversine_a = math.sin(delta_phi/2)**2 + math.cos(phi_a) * math.cos(phi_b) * math.sin(delta_lambda/2)**2
-            haversine_c = 2 * math.atan2(math.sqrt(haversine_a), math.sqrt(1-haversine_a))
-            distance = earth_radius * haversine_c / 1000
-            
-            if distance <= max_distance:
+    # Defining edges based on SCATS Neighbours from Scats Data.csv
+    edge_dict = {
+    4063: [4057, 4034, 2200, 3127],
+    2820: [3662, 4321],
+    3682: [3126, 3804, 2000],
+    3002: [3001, 3662, 4263],
+    3180: [4051, 4057],
+    2200: [4063],
+    4264: [4324, 4263, 4266, 4270],
+    3812: [4040, 3804],
+    4272: [4270, 4040, 4273],
+    4263: [3002, 4262, 4264],
+    2846: [970],
+    4821: [3001],
+    3662: [2820, 4335, 4324, 3002, 3001],
+    4270: [4812, 4264, 4272],
+    4030: [2825, 4051, 4321, 4032],
+    2825: [4030],
+    3126: [3127, 3682],
+    2000: [3685, 4043, 3682],
+    4273: [4043, 4272],
+    4812: [4270],
+    2827: [4051],
+    4035: [4034, 3120],
+    4262: [4263, 3001],
+    4324: [3662, 4034, 4264],
+    970: [2846, 3685],
+    3122: [3804, 3120, 3127],
+    4034: [4032, 4324, 4063, 4035],
+    4051: [2827, 4030, 3180],
+    4057: [3180, 4032, 4063],
+    3127: [4063, 3122, 3126],
+    3685: [2000, 970],
+    4043: [4040, 4273, 2000],
+    3001: [4821, 4262, 3002, 3662],
+    4321: [4335, 2820, 4032, 4030],
+    4032: [4030, 4321, 4057, 4034],
+    4040: [3120, 4266, 4272, 3804, 3812, 4043],
+    3804: [3122, 4040, 3812, 3682],
+    3120: [3122, 4040, 4035],
+    4335: [3662, 4321],
+    4266: [4040, 4264]
+}
+    
+    # Calculating distances for travel time using haversine formula
+    earth_radius = 6371e3  # in meters
+    for site_id_a, neighbors in edge_dict.items():
+        if site_id_a not in unique_site_ids:
+            continue
+        for site_id_b in neighbors:
+            if site_id_b not in unique_site_ids:
+                continue
+            # Ensure both sites exist in the graph
+            if site_id_a in graph.nodes and site_id_b in graph.nodes:
+                # Get coordinates
+                coords_a = locations[np.where(site_ids == site_id_a)[0][0]][1:3]
+                coords_b = locations[np.where(site_ids == site_id_b)[0][0]][1:3]
+                latitude_a, longitude_a = coords_a
+                latitude_b, longitude_b = coords_b
+                
+                # Haversine formula for distance
+                phi_a = math.radians(latitude_a)
+                phi_b = math.radians(latitude_b)
+                delta_phi = math.radians(latitude_b - latitude_a)
+                delta_lambda = math.radians(longitude_b - longitude_a)
+                
+                haversine_a = math.sin(delta_phi/2)**2 + math.cos(phi_a) * math.cos(phi_b) * math.sin(delta_lambda/2)**2
+                haversine_c = 2 * math.atan2(math.sqrt(haversine_a), math.sqrt(1-haversine_a))
+                distance = earth_radius * haversine_c / 1000  # Convert to kilometers
+                
+                # Calculate travel time using flow-to-speed
                 speed = flow_to_speed(site_to_flows[site_id_b].mean())
-                travel_time = (distance / speed) * 60 + 0.5
+                travel_time = (distance / speed) * 60 + 0.5  # in minutes
                 graph.add_edge(site_id_a, site_id_b, weight=travel_time)
     
     return graph
