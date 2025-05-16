@@ -54,6 +54,7 @@ def train_model(model, X_train, y_train, X_test, y_test, scaler, locations, scat
             from parse_train import create_traffic_network
             G = create_traffic_network(locations, scats_numbers, predicted_flows, scats_numbers)
             nodes = {int(scats): (lat, lon) for scats, lat, lon in locations}
+
             graph_dict = {int(node): [(int(neighbor), G[node][neighbor]['weight']) for neighbor in G.neighbors(node)] for node in G.nodes}
             _, _, _, path_cost = astar(graph_dict, nodes, int(scats_numbers[0]), [int(scats_numbers[-1])], heuristic="E")
             path_loss = torch.tensor(path_cost if path_cost is not None else 0.0, requires_grad=True)

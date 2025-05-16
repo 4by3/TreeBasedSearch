@@ -5,6 +5,7 @@ from parse_train import load_and_process_data, prepare_time_series_data, create_
 from train import LSTMModel, GRUModel, train_model
 from algorithms.astar import astar
 import torch
+import math
 
 def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     origin = int(origin)
@@ -23,19 +24,23 @@ def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     graph_dict = {int(node): [(int(neighbor), G[node][neighbor]['weight']) for neighbor in G.neighbors(node)] for node in G.nodes}
     
     paths = []
-    original_edges = list(G.edges(data=True))
+    original_graph_dict = graph_dict.copy()
     
-    for _ in range(num_paths):
+    for i in range(num_paths):
         goal, _, path, cost = astar(graph_dict, nodes, origin, [destination], heuristic="E")
         if not path:
+            print(f"No more paths found after {i} paths.")
             break
         paths.append({'path': [int(node) for node in path], 'travel_time': cost})
-        for i in range(len(path)-1):
-            if G.has_edge(path[i], path[i+1]):
-                G.remove_edge(path[i], path[i+1])
-                graph_dict[path[i]] = [(n, w) for n, w in graph_dict[path[i]] if n != path[i+1]]
+        
+        # Temporarily increase weights instead of removing edges
+        for j in range(len(path)-1):
+            for neighbor, weight in graph_dict[path[j]]:
+                if neighbor == path[j+1]:
+                    graph_dict[path[j]] = [(n, w*2 if n == neighbor else w) for n, w in graph_dict[path[j]]]
     
-    G.add_edges_from(original_edges)
+    # Restore original graph
+    graph_dict.update(original_graph_dict)
     
     return paths
 
@@ -82,18 +87,81 @@ def main(file_path, origin, destination):
     G = create_traffic_network(locations, scats_numbers, predictions, scats_numbers)
     nodes = {int(scats): (lat, lon) for scats, lat, lon in locations}
     
-    print(f"Graph nodes: {list(G.nodes)}")
-    print(f"Graph edges: {list(G.edges)}")
+
+
+    
     
     paths = find_optimal_paths(G, nodes, origin, destination)
     
+    print("\n=== Optimal Paths ===")
     if not paths:
         print("No valid paths found.")
     else:
         for i, path_info in enumerate(paths, 1):
             print(f"\nRoute {i}:")
-            print(f"Path: {' -> '.join(map(str, path_info['path']))}")
+            path = path_info['path']
+            print(f"Path: {' -> '.join(map(str, path))}")
             print(f"Estimated travel time: {path_info['travel_time']:.2f} minutes")
+            print("Edge details:")
+            for j in range(len(path)-1):
+                u, v = path[j], path[j+1]
+                if G.has_edge(u, v):
+                    weight = G[u][v]['weight']
+                    print(f"  {u} -> {v}: {weight:.2f} min")
+                else:
+                    print(f"  {u} -> {v}: Missing edge!")
+    # Example usage (integrate this into your main function)
+    plot_traffic_network(G, nodes, paths)
+
+import matplotlib.pyplot as plt
+import networkx as nx
+
+def plot_traffic_network(G, nodes, paths):
+    # Create a new figure
+    plt.figure(figsize=(10, 8))
+    
+    # Plot all nodes
+    for node, (lat, lon) in nodes.items():
+        plt.scatter(lon, lat, c='blue', s=100, label='Nodes' if node == list(nodes.keys())[0] else "", zorder=3)
+        plt.text(lon, lat, str(node), fontsize=8, ha='right', va='bottom', zorder=4)
+    
+    # Plot all edges
+    for u, v in G.edges():
+        u_lon, u_lat = nodes[u][1], nodes[u][0]
+        v_lon, v_lat = nodes[v][1], nodes[v][0]
+        plt.plot([u_lon, v_lon], [u_lat, v_lat], 'k-', alpha=0.3, linewidth=1, zorder=1)
+    
+    # Define colors for paths
+    colors = ['red', 'green', 'orange', 'purple', 'cyan']
+    
+    # Plot each path
+    for i, path_info in enumerate(reversed(paths)):
+        path = path_info['path']
+        travel_time = path_info['travel_time']
+        color = colors[i % len(colors)]
+        
+        # Plot edges of the path
+        for j in range(len(path)-1):
+            u, v = path[j], path[j+1]
+            if G.has_edge(u, v):
+                u_lon, u_lat = nodes[u][1], nodes[u][0]
+                v_lon, v_lat = nodes[v][1], nodes[v][0]
+                plt.plot([u_lon, v_lon], [u_lat, v_lat], color=color, linewidth=2, zorder=2, 
+                         label=f'Route {i+1} ({travel_time:.2f} min)' if j == 0 else "")
+    
+    # Add title and labels
+    plt.title('Traffic Network with Optimal Routes')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    
+    # Add legend
+    plt.legend()
+    
+    # Save and show the plot
+    plt.savefig('traffic_network.png')
+    plt.show()
+
+
 
 if __name__ == "__main__":
     file_path = "Scats Data October 2006.xls"

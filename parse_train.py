@@ -24,8 +24,6 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
         print(f"Error reading Excel file: {e}")
         raise
     
-    print("Column names in the dataset:", df.columns.tolist())
-    
     required_columns = ['SCATS Number', 'Date', 'NB_LATITUDE', 'NB_LONGITUDE']
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
@@ -48,9 +46,6 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
         except Exception as e:
             print(f"Error converting Date column: {e}")
             raise
-    
-    poor_quality_sites = [970, 2000, 2820, 3001, 3002, 3127, 3682, 3685, 4057, 4262, 4263, 4264, 4272, 4812]
-    df = df[~df['SCATS Number'].isin(poor_quality_sites)]
     
     df = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
     df = df[df['NB_LATITUDE'].between(-90, 90) & df['NB_LONGITUDE'].between(-180, 180)]
@@ -109,99 +104,104 @@ def flow_to_speed(flow):
         return min(speed1, speed2)
 
 def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
-    # Initializing the graph
     graph = nx.Graph()
-    unique_site_ids = np.unique([int(site_id) for site_id in site_ids])
+    site_to_coords = {int(site_id): (lat, lon) for site_id, lat, lon in locations}
     
-    # Adding nodes with their geographic positions
-    for site_id, latitude, longitude in locations:
-        site_id = int(site_id)
-        if site_id in unique_site_ids:
-            graph.add_node(site_id, pos=(latitude, longitude))
+    edge_dict = {
+        4063: [4057, 4034, 2200, 3127],
+        2820: [3662, 4321],
+        3682: [3126, 3804, 2000],
+        3002: [3001, 3662, 4263],
+        3180: [4051, 4057],
+        2200: [4063],
+        4264: [4324, 4263, 4266, 4270],
+        3812: [4040, 3804],
+        4272: [4270, 4040, 4273],
+        4263: [3002, 4262, 4264],
+        2846: [970],
+        4821: [3001],
+        3662: [2820, 4335, 4324, 3002, 3001],
+        4270: [4812, 4264, 4272],
+        4030: [2825, 4051, 4321, 4032],
+        2825: [4030],
+        3126: [3127, 3682],
+        2000: [3685, 4043, 3682],
+        4273: [4043, 4272],
+        4812: [4270],
+        2827: [4051],
+        4035: [4034, 3120],
+        4262: [4263, 3001],
+        4324: [3662, 4034, 4264],
+        970: [2846, 3685],
+        3122: [3804, 3120, 3127],
+        4034: [4032, 4324, 4063, 4035],
+        4051: [2827, 4030, 3180],
+        4057: [3180, 4032, 4063],
+        3127: [4063, 3122, 3126],
+        3685: [2000, 970],
+        4043: [4040, 4273, 2000],
+        3001: [4821, 4262, 3002, 3662],
+        4321: [4335, 2820, 4032, 4030],
+        4032: [4030, 4321, 4057, 4034],
+        4040: [3120, 4266, 4272, 3804, 3812, 4043],
+        3804: [3122, 4040, 3812, 3682],
+        3120: [3122, 4040, 4035],
+        4335: [3662, 4321],
+        4266: [4040, 4264]
+    }
     
-    # Calculating average flows for each site
+    # Create fully bidirectional edge dictionary
+    bidirectional_edges = {}
+    for site_id_a, neighbors in edge_dict.items():
+        bidirectional_edges[site_id_a] = list(set(neighbors))  # Remove duplicates
+        for site_id_b in neighbors:
+            if site_id_b not in bidirectional_edges:
+                bidirectional_edges[site_id_b] = []
+            if site_id_a not in bidirectional_edges[site_id_b]:
+                bidirectional_edges[site_id_b].append(site_id_a)
+    
+    all_site_ids_in_dict = set(bidirectional_edges.keys())
+    for site_id in all_site_ids_in_dict:
+        if site_id in site_to_coords:
+            graph.add_node(site_id, pos=site_to_coords[site_id])
+    
     site_to_flows = {}
-    for site_id in unique_site_ids:
+    for site_id in all_site_ids_in_dict:
         indices = np.where(all_site_ids == site_id)[0]
         valid_indices = indices[indices < len(predicted_flows)]
-        if len(valid_indices) > 0:
-            site_to_flows[site_id] = predicted_flows[valid_indices].mean(axis=0)
-        else:
-            site_to_flows[site_id] = np.zeros(predicted_flows.shape[1])
+        site_to_flows[site_id] = predicted_flows[valid_indices].mean(axis=0) if len(valid_indices) > 0 else np.zeros(predicted_flows.shape[1])
     
-    # Defining edges based on SCATS Neighbours from Scats Data.csv
-    edge_dict = {
-    4063: [4057, 4034, 2200, 3127],
-    2820: [3662, 4321],
-    3682: [3126, 3804, 2000],
-    3002: [3001, 3662, 4263],
-    3180: [4051, 4057],
-    2200: [4063],
-    4264: [4324, 4263, 4266, 4270],
-    3812: [4040, 3804],
-    4272: [4270, 4040, 4273],
-    4263: [3002, 4262, 4264],
-    2846: [970],
-    4821: [3001],
-    3662: [2820, 4335, 4324, 3002, 3001],
-    4270: [4812, 4264, 4272],
-    4030: [2825, 4051, 4321, 4032],
-    2825: [4030],
-    3126: [3127, 3682],
-    2000: [3685, 4043, 3682],
-    4273: [4043, 4272],
-    4812: [4270],
-    2827: [4051],
-    4035: [4034, 3120],
-    4262: [4263, 3001],
-    4324: [3662, 4034, 4264],
-    970: [2846, 3685],
-    3122: [3804, 3120, 3127],
-    4034: [4032, 4324, 4063, 4035],
-    4051: [2827, 4030, 3180],
-    4057: [3180, 4032, 4063],
-    3127: [4063, 3122, 3126],
-    3685: [2000, 970],
-    4043: [4040, 4273, 2000],
-    3001: [4821, 4262, 3002, 3662],
-    4321: [4335, 2820, 4032, 4030],
-    4032: [4030, 4321, 4057, 4034],
-    4040: [3120, 4266, 4272, 3804, 3812, 4043],
-    3804: [3122, 4040, 3812, 3682],
-    3120: [3122, 4040, 4035],
-    4335: [3662, 4321],
-    4266: [4040, 4264]
-}
-    
-    # Calculating distances for travel time using haversine formula
-    earth_radius = 6371e3  # in meters
-    for site_id_a, neighbors in edge_dict.items():
-        if site_id_a not in unique_site_ids:
+    earth_radius = 6371e3
+    added_edges = set()
+    missing_edges = []
+    for site_id_a, neighbors in bidirectional_edges.items():
+        if site_id_a not in graph.nodes:
             continue
         for site_id_b in neighbors:
-            if site_id_b not in unique_site_ids:
+            if site_id_b not in graph.nodes:
+                missing_edges.append((site_id_a, site_id_b))
                 continue
-            # Ensure both sites exist in the graph
-            if site_id_a in graph.nodes and site_id_b in graph.nodes:
-                # Get coordinates
-                coords_a = locations[np.where(site_ids == site_id_a)[0][0]][1:3]
-                coords_b = locations[np.where(site_ids == site_id_b)[0][0]][1:3]
-                latitude_a, longitude_a = coords_a
-                latitude_b, longitude_b = coords_b
-                
-                # Haversine formula for distance
-                phi_a = math.radians(latitude_a)
-                phi_b = math.radians(latitude_b)
-                delta_phi = math.radians(latitude_b - latitude_a)
-                delta_lambda = math.radians(longitude_b - longitude_a)
-                
-                haversine_a = math.sin(delta_phi/2)**2 + math.cos(phi_a) * math.cos(phi_b) * math.sin(delta_lambda/2)**2
-                haversine_c = 2 * math.atan2(math.sqrt(haversine_a), math.sqrt(1-haversine_a))
-                distance = earth_radius * haversine_c / 1000  # Convert to kilometers
-                
-                # Calculate travel time using flow-to-speed
-                speed = flow_to_speed(site_to_flows[site_id_b].mean())
-                travel_time = (distance / speed) * 60 + 0.5  # in minutes
-                graph.add_edge(site_id_a, site_id_b, weight=travel_time)
+            edge = tuple(sorted([site_id_a, site_id_b]))
+            if edge in added_edges:
+                continue
+            lat_a, lon_a = site_to_coords[site_id_a]
+            lat_b, lon_b = site_to_coords[site_id_b]
+            
+            phi_a = math.radians(lat_a)
+            phi_b = math.radians(lat_b)
+            delta_phi = math.radians(lat_b - lat_a)
+            delta_lambda = math.radians(lon_b - lon_a)
+            haversine_a = math.sin(delta_phi/2)**2 + math.cos(phi_a) * math.cos(phi_b) * math.sin(delta_lambda/2)**2
+            haversine_c = 2 * math.atan2(math.sqrt(haversine_a), math.sqrt(1-haversine_a))
+            distance = earth_radius * haversine_c / 1000
+            
+            speed = flow_to_speed(site_to_flows[site_id_b].mean())
+            travel_time = (distance / speed) * 60 + 0.5
+            graph.add_edge(site_id_a, site_id_b, weight=travel_time)
+            added_edges.add(edge)
+    
+    # Log missing edges for debugging
+    if missing_edges:
+        print(f"Missing edges due to absent nodes: {missing_edges}")
     
     return graph
