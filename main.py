@@ -44,7 +44,7 @@ def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     
     return paths
 
-def main(file_path, origin, destination):
+def main(file_path, origin, destination, ml):
     traffic_data, locations, scats_numbers = load_and_process_data(file_path, sheet_name='Data', header=1)
     
     look_back = 4
@@ -55,6 +55,8 @@ def main(file_path, origin, destination):
     num_layers = 2
     output_size = X_train.shape[2]
     
+#FUTURE TO DO: PLEASE MOVE THESE MESSAGES/TRAINING STUFFF INTO THEIR OWN FUNCTIONS SO THAT THE PROGRAM DOESNT KEEP TRAINING EVERYTIME A ROUTE IS REQUESTED
+
     lstm_model = LSTMModel(input_size, hidden_size, num_layers, output_size)
     gru_model = GRUModel(input_size, hidden_size, num_layers, output_size)
     
@@ -82,8 +84,18 @@ def main(file_path, origin, destination):
     print(f"LSTM MSE: {lstm_mse:.2f}, MAE: {lstm_mae:.2f}")
     print(f"GRU MSE: {gru_mse:.2f}, MAE: {gru_mae:.2f}")
     
-    predictions = lstm_predictions if lstm_mse < gru_mse else gru_predictions
-    
+    if(ml == "LSTM"):
+        predictions = lstm_predictions
+    if(ml == "GRU"):
+        predictions = gru_predictions
+    if(ml == "FNN"):
+        print("not implemented")
+        #PLS INTEGRATE FNN INTO MAIN PLS THANKS
+        return
+
+    # Previous prediction selection code: "Selects best model"
+    # predictions = lstm_predictions if lstm_mse < gru_mse else gru_predictions
+
     G = create_traffic_network(locations, scats_numbers, predictions, scats_numbers)
     nodes = {int(scats): (lat, lon) for scats, lat, lon in locations}
     
@@ -162,9 +174,10 @@ def plot_traffic_network(G, nodes, paths):
     plt.show()
 
 
-
+#Default route when main.py is called
 if __name__ == "__main__":
     file_path = "Scats Data October 2006.xls"
     origin = 2200
     destination = 3120
-    main(file_path, origin, destination)
+    ml = "LSTM"
+    main(file_path, origin, destination, ml)
