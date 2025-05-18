@@ -1,7 +1,9 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from PIL import ImageTk, Image
 from main import main
+
 
 #How to use Tkinter
 #There is a root window defined as tk.Tk(), all widgets are placed into this, as such make sure when creating a new label, dropdown menu, etc. the first parameter should be the window it is placed in
@@ -21,11 +23,14 @@ from main import main
 class GUI:
 
     def __init__(self):
+        
+        #state to check if the program was run.
+        self.ran = False
 
         #makes window, 1000x1000 pixels by default
         self.root = tk.Tk()
         self.root.title("TBRGS")
-        self.root.geometry("500x500")
+        self.root.geometry("1000x1000")
 
         #Title
         self.title = tk.Label(self.root, text = "TBRGS", font = ("Arial", 30))
@@ -52,6 +57,7 @@ class GUI:
         self.ML_dd = ttk.Combobox(self.root, values = ["LSTM", "GRU", "FNN"])
         self.ML_dd.pack()
 
+        #Dropdown menu for time, not done yet
         self.Timelbl = tk.Label(self.root, text = 'Select Time:')
         self.Timelbl.pack()
         self.Time_dd = ttk.Combobox(self.root, values = ["Yeah", "Nah", "Pls", "Add", "Functionality"])
@@ -61,6 +67,11 @@ class GUI:
         #Confirmation button to submit form.
         self.ConfirmBtn = tk.Button(self.root, text = "Run", font = ("Arial", 15), command = self.RunMain)
         self.ConfirmBtn.pack( side = "bottom", padx = 20, pady = 100)
+
+    
+
+        self.resultImglbl = tk.Label(self.root)
+        self.resultImglbl.pack(side= "bottom", pady= 20 )
 
 
 
@@ -90,7 +101,20 @@ class GUI:
 
         main(file_path, origin, dest, ml)
 
+        #updates image
+        self.showImage()
+
         return
-        
+
+    def showImage(self):
+        #updating the image label in the mainloop to show new result image
+        resultImg = Image.open("traffic_network.png").resize((600,600))
+        resultImg = ImageTk.PhotoImage(resultImg)
+
+        self.resultImglbl.config(image=resultImg)
+        self.resultImglbl.image = resultImg
+
+        return
+
             
 GUI()

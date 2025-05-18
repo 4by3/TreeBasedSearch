@@ -129,6 +129,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 def plot_traffic_network(G, nodes, paths):
+    #Issues: Certain routes overlap entirely, see if can fix? 
+
+
+
     # Create a new figure
     plt.figure(figsize=(10, 8))
     
@@ -171,7 +175,7 @@ def plot_traffic_network(G, nodes, paths):
     
     # Save and show the plot
     plt.savefig('traffic_network.png')
-    plt.show()
+    return
 
 
 #Default route when main.py is called
