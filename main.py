@@ -6,7 +6,83 @@ from train import LSTMModel, GRUModel, train_model
 from algorithms.astar import astar
 import torch
 import math
+# new stuff from my fnn file
+from sklearn.preprocessing import StandardScaler
+import torch.nn as nn
+import torch.optim as optim
 
+# small feedforward brain that learns travel time
+class FNNRegressor(nn.Module):
+    def __init__(self, input_dim):
+        super(FNNRegressor, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+# turns flow into time using weird traffic math
+def compute_fnn_travel_time(data):
+    volume_cols = [i for i in range(data.shape[1])]
+    X = data[:, volume_cols]
+    flow = np.mean(X, axis=1)
+
+    # do the dumb equation to get speed from flow
+    speed = np.where(flow <= 351, 60, 0)
+    mask = flow > 351
+    a, b, c = -1.4648375, 93.75, -flow[mask]
+    disc = b**2 - 4*a*c
+    root = np.sqrt(disc)
+    congested_speed = (-b + root) / (2*a)
+    speed[mask] = congested_speed
+    speed = np.clip(speed, 1, 60)
+
+    # physics time = distance / speed + 30s delay
+    travel_time = (0.5 / (speed / 60)) + 0.5  # 0.5km link + 30sec
+    return X, travel_time
+
+# trains the fnn model on the flow + travel time
+def train_fnn(X, y):
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
+    X_test = torch.tensor(X_test, dtype=torch.float32)
+    y_test = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
+
+    model = FNNRegressor(X_train.shape[1])
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    loss_fn = nn.MSELoss()
+
+    for epoch in range(100):
+        model.train()
+        pred = model(X_train)
+        loss = loss_fn(pred, y_train)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if epoch % 10 == 0:
+            print(f'fnn epoch {epoch} – loss: {loss.item():.4f}')
+
+    # not perfect but it learns
+    model.eval()
+    with torch.no_grad():
+        preds = model(X_test)
+        test_loss = loss_fn(preds, y_test)
+        print(f'fnn test loss: {test_loss.item():.4f}')
+        for i in range(3):
+            print(f'actual: {y_test[i].item():.2f} – predicted: {preds[i].item():.2f}')
+
+    return model
+
+# finds shortest paths based on updated travel times (used by A*)
 def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     origin = int(origin)
     destination = int(destination)
@@ -47,6 +123,11 @@ def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
 def main(file_path, origin, destination):
     traffic_data, locations, scats_numbers = load_and_process_data(file_path, sheet_name='Data', header=1)
     
+# do the fnn thing first
+    print("training fnn... hold on")
+    X_fnn, y_fnn = compute_fnn_travel_time(traffic_data)
+    fnn_model = train_fnn(X_fnn, y_fnn)
+
     look_back = 4
     X_train, y_train, X_test, y_test, scaler = prepare_time_series_data(traffic_data, look_back)
     
