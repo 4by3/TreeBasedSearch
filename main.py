@@ -47,7 +47,7 @@ def compute_fnn_travel_time(data):
     return X, travel_time
 
 # trains the fnn model on the flow + travel time
-def train_fnn(X, y):
+# def train_fnn(X, y):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
@@ -120,13 +120,15 @@ def find_optimal_paths(G, nodes, origin, destination, num_paths=5):
     
     return paths
 
-def main(file_path, origin, destination, ml):
+def main(file_path, origin, destination, ml, time):
     traffic_data, locations, scats_numbers = load_and_process_data(file_path, sheet_name='Data', header=1)
-    
+
+    #paramater time has not yet been implemented
+
 # do the fnn thing first
-    print("training fnn... hold on")
-    X_fnn, y_fnn = compute_fnn_travel_time(traffic_data)
-    fnn_model = train_fnn(X_fnn, y_fnn)
+    #print("training fnn... hold on")
+    #X_fnn, y_fnn = compute_fnn_travel_time(traffic_data)
+    #fnn_model = train_fnn(X_fnn, y_fnn)
 
     look_back = 4
     X_train, y_train, X_test, y_test, scaler = prepare_time_series_data(traffic_data, look_back)
@@ -256,7 +258,7 @@ def plot_traffic_network(G, nodes, paths):
     
     # Save and show the plot
     plt.savefig('traffic_network.png')
-    return
+    
 
 
 #Default route when main.py is called
