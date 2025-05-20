@@ -10,6 +10,7 @@ import math
 from sklearn.preprocessing import StandardScaler
 import torch.nn as nn
 import torch.optim as optim
+from datetime import datetime
 
 # small feedforward brain that learns travel time
 class FNNRegressor(nn.Module):
@@ -25,6 +26,20 @@ class FNNRegressor(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+#added recently : accept a time argument and map it to an index matching downsampled data ###################################
+def time_to_index(time_str, start_time="00:00", interval_hours=2):
+    from datetime import datetime, timedelta
+    fmt = "%H:%M"
+    t = datetime.strptime(time_str, fmt)
+    start = datetime.strptime(start_time, fmt)
+    delta = t - start
+    total_minutes = delta.seconds // 60
+    # Round to nearest 2-hour interval in minutes (120 min)
+    nearest_2h_minutes = round(total_minutes / (interval_hours * 60)) * (interval_hours * 60)
+    # Compute index
+    index = nearest_2h_minutes // (interval_hours * 60)
+    return index
 
 # turns flow into time using weird traffic math
 def compute_fnn_travel_time(data):
@@ -167,6 +182,13 @@ def main(file_path, origin, destination, ml, time):
     print(f"LSTM MSE: {lstm_mse:.2f}, MAE: {lstm_mae:.2f}")
     print(f"GRU MSE: {gru_mse:.2f}, MAE: {gru_mae:.2f}")
     
+
+    #####added recently###################################################################
+    time_idx = time_to_index(time)
+    # Ensure time index is in range
+    if time_idx >= len(y_test):
+      print(f"Selected time {time} is out of prediction range.")
+      return
     if(ml == "LSTM"):
         predictions = lstm_predictions
     if(ml == "GRU"):
@@ -179,7 +201,7 @@ def main(file_path, origin, destination, ml, time):
     # Previous prediction selection code: "Selects best model"
     # predictions = lstm_predictions if lstm_mse < gru_mse else gru_predictions
 
-    G = create_traffic_network(locations, scats_numbers, predictions, scats_numbers)
+    G = create_traffic_network(locations, scats_numbers, np.array([predictions]), scats_numbers) #changed predictions to np.array()
     nodes = {int(scats): (lat, lon) for scats, lat, lon in locations}
     
 
@@ -267,4 +289,5 @@ if __name__ == "__main__":
     origin = 2200
     destination = 3120
     ml = "LSTM"
-    main(file_path, origin, destination, ml)
+    time = "00:00"  # default time matching your downsampling
+    main(file_path, origin, destination, ml, time) #added time###################

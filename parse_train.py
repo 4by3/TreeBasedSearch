@@ -46,9 +46,12 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
         except Exception as e:
             print(f"Error converting Date column: {e}")
             raise
-    
+    print("All SCATS sites before filtering:", df['SCATS Number'].unique())
+
     df = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
     df = df[df['NB_LATITUDE'].between(-90, 90) & df['NB_LONGITUDE'].between(-180, 180)]
+
+    
     
     volume_columns = [col for col in df.columns if col.startswith('V')]
     if not volume_columns:
@@ -58,15 +61,27 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
      # Set Date as index for time series operations
     df.set_index(date_col, inplace=True)
     
+    
+    # Group by index (datetime) and average only volume columns
+    df_numeric = df[volume_columns]  # select only volume columns
+    df_numeric = df_numeric.groupby(df_numeric.index).mean()
+
+# If you need to preserve other info, handle separately
+
+
+
+    print("SCATS sites after  filtering:", df['SCATS Number'].unique())
+
     # 1. Reindex to a complete time index (assuming 15 min frequency)
-    full_time_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='15T')
-    df = df.reindex(full_time_index)
+    full_time_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='15min')
+    df_numeric = df_numeric.reindex(full_time_index)
     
     # 2. Interpolate missing traffic volume data
-    df[volume_columns] = df[volume_columns].interpolate(method='time')
+    df_numeric = df_numeric.interpolate(method='time')
     
     # 3. Downsample to every 2 hours (e.g., mean traffic volume)
-    df_downsampled = df[volume_columns].resample('2H').mean()
+    df_downsampled = df_numeric.resample('2h').mean()
+
     
     # Prepare output variables as before, but from downsampled data
     traffic_data = df_downsampled.values
@@ -172,6 +187,7 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
         4266: [4040, 4264]
     }
     
+
     # Create fully bidirectional edge dictionary
     bidirectional_edges = {}
     for site_id_a, neighbors in edge_dict.items():
