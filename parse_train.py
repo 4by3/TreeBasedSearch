@@ -5,8 +5,9 @@ import torch
 import networkx as nx
 import math
 from pathlib import Path
+from datetime import datetime
 
-def load_and_process_data(file_path, sheet_name='Data', header=1):
+def load_and_process_data(file_path, time_str, sheet_name='Data', header=1):
     if not Path(file_path).exists():
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
     
@@ -18,16 +19,43 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
     else:
         raise ValueError(f"Unsupported file extension: {file_ext}. Use .xls or .xlsx.")
     
+    # Load header row (row 0) to get time labels
+    try:
+        df_header = pd.read_excel(file_path, engine=engine, sheet_name=sheet_name, header=0, nrows=1)
+    except Exception as e:
+        print(f"Error reading Excel file header: {e}")
+        raise
+    
+    # Convert input time string to datetime.time object
+    try:
+        time_clean = datetime.strptime(time_str, '%H:%M').time()
+    except ValueError as e:
+        raise ValueError(f"Invalid time format: {time_str}. Expected format: 'HH:MM'") from e
+    
+    # Check if the time exists in the DataFrame columns
+    if time_clean not in df_header.columns:
+        raise ValueError(f"Time {time_clean} not found in Excel header. Available times: {df_header.columns.tolist()}")
+    
+    # Map datetime.time to corresponding VXX column
+    time_index = list(df_header.columns).index(time_clean)
+    if time_index < 10:
+        raise ValueError(f"Time {time_clean} does not correspond to a volume column (index {time_index} is before 'Start Time').")
+    volume_col = f"V{time_index - 10:02d}"  # Adjust for 'Start Time' and other non-time columns
+    
+    # Load data with header=1
     try:
         df = pd.read_excel(file_path, engine=engine, sheet_name=sheet_name, header=header)
     except Exception as e:
-        print(f"Error reading Excel file: {e}")
+        print(f"Error reading Excel file data: {e}")
         raise
     
     required_columns = ['SCATS Number', 'Date', 'NB_LATITUDE', 'NB_LONGITUDE']
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         raise KeyError(f"Missing required columns: {missing_columns}. Available columns: {df.columns.tolist()}")
+    
+    if volume_col not in df.columns:
+        raise ValueError(f"Volume column {volume_col} not found in the dataset. Available columns: {df.columns.tolist()}")
     
     date_col = None
     for col in df.columns:
@@ -46,52 +74,22 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
         except Exception as e:
             print(f"Error converting Date column: {e}")
             raise
-    print("All SCATS sites before filtering:", df['SCATS Number'].unique())
-
+    
     df = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
     df = df[df['NB_LATITUDE'].between(-90, 90) & df['NB_LONGITUDE'].between(-180, 180)]
-
     
-    
-    volume_columns = [col for col in df.columns if col.startswith('V')]
-    if not volume_columns:
-        raise ValueError("No traffic volume columns (V00-V95) found in the dataset.")
-    
-    
-     # Set Date as index for time series operations
     df.set_index(date_col, inplace=True)
-    
-    
-    # Group by index (datetime) and average only volume columns
-    df_numeric = df[volume_columns]  # select only volume columns
+    df_numeric = df[[volume_col]]
     df_numeric = df_numeric.groupby(df_numeric.index).mean()
-
-# If you need to preserve other info, handle separately
-
-
-
-    print("SCATS sites after  filtering:", df['SCATS Number'].unique())
-
-    # 1. Reindex to a complete time index (assuming 15 min frequency)
+    
     full_time_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='15min')
     df_numeric = df_numeric.reindex(full_time_index)
-    
-    # 2. Interpolate missing traffic volume data
     df_numeric = df_numeric.interpolate(method='time')
     
-    # 3. Downsample to every 2 hours (e.g., mean traffic volume)
-    df_downsampled = df_numeric.resample('2h').mean()
-
+    # Extract traffic data for the specified time column
+    traffic_data = df_numeric[volume_col].values
+    print(f"Selected time: {time_str}, Volume column: {volume_col}, Traffic data shape: {traffic_data.shape}, Sample: {traffic_data[:5]}")
     
-    # Prepare output variables as before, but from downsampled data
-    traffic_data = df_downsampled.values
-
-
-    '''df['SCATS Number'] = df['SCATS Number'].astype(int)
-    locations = df[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].values
-    scats_numbers = df['SCATS Number'].values '''
-
-    # For locations and scats_numbers, use original since locations won't change
     df_locations = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
     locations = df_locations[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].drop_duplicates().values
     scats_numbers = df_locations['SCATS Number'].drop_duplicates().values.astype(int)
@@ -100,7 +98,7 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
 
 def prepare_time_series_data(data, look_back=4):
     scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(data)
+    scaled_data = scaler.fit_transform(data.reshape(-1, 1))
     
     X, y = [], []
     for i in range(len(scaled_data) - look_back):
@@ -126,19 +124,31 @@ def flow_to_speed(flow):
     b = 93.75
     c = -flow
     
-    discriminant = b**2 - 4*a*c
-    if discriminant < 0:
-        return 60.0
-    
-    speed1 = (-b + math.sqrt(discriminant)) / (2*a)
-    speed2 = (-b - math.sqrt(discriminant)) / (2*a)
-    
-    if flow <= 351:
-        return min(60.0, max(speed1, speed2))
-    elif flow <= 1500:
-        return max(speed1, speed2)
+    if isinstance(flow, (np.ndarray, list)):
+        flow = np.array(flow)
+        discriminant = b**2 - 4*a*c
+        speeds = np.zeros_like(flow, dtype=float)
+        mask = discriminant >= 0
+        speeds[~mask] = 60.0
+        speed1 = (-b + np.sqrt(discriminant[mask])) / (2*a)
+        speed2 = (-b - np.sqrt(discriminant[mask])) / (2*a)
+        speeds[mask] = np.where(flow[mask] <= 351, np.minimum(60.0, np.maximum(speed1, speed2)),
+                               np.where(flow[mask] <= 1500, np.maximum(speed1, speed2),
+                                        np.minimum(speed1, speed2)))
     else:
-        return min(speed1, speed2)
+        discriminant = b**2 - 4*a*c
+        if discriminant < 0:
+            return 60.0
+        speed1 = (-b + math.sqrt(discriminant)) / (2*a)
+        speed2 = (-b - math.sqrt(discriminant)) / (2*a)
+        if flow <= 351:
+            return min(60.0, max(speed1, speed2))
+        elif flow <= 1500:
+            return max(speed1, speed2)
+        else:
+            return min(speed1, speed2)
+    
+    return speeds
 
 def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
     graph = nx.Graph()
@@ -187,11 +197,9 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
         4266: [4040, 4264]
     }
     
-
-    # Create fully bidirectional edge dictionary
     bidirectional_edges = {}
     for site_id_a, neighbors in edge_dict.items():
-        bidirectional_edges[site_id_a] = list(set(neighbors))  # Remove duplicates
+        bidirectional_edges[site_id_a] = list(set(neighbors))
         for site_id_b in neighbors:
             if site_id_b not in bidirectional_edges:
                 bidirectional_edges[site_id_b] = []
@@ -206,8 +214,10 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
     site_to_flows = {}
     for site_id in all_site_ids_in_dict:
         indices = np.where(all_site_ids == site_id)[0]
-        valid_indices = indices[indices < len(predicted_flows)]
-        site_to_flows[site_id] = predicted_flows[valid_indices].mean(axis=0) if len(valid_indices) > 0 else np.zeros(predicted_flows.shape[1])
+        if len(indices) > 0 and indices[0] < len(predicted_flows):
+            site_to_flows[site_id] = float(predicted_flows[indices[0]])
+        else:
+            site_to_flows[site_id] = 0.0
     
     earth_radius = 6371e3
     added_edges = set()
@@ -233,12 +243,11 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
             haversine_c = 2 * math.atan2(math.sqrt(haversine_a), math.sqrt(1-haversine_a))
             distance = earth_radius * haversine_c / 1000
             
-            speed = flow_to_speed(site_to_flows[site_id_b].mean())
+            speed = flow_to_speed(site_to_flows[site_id_b])
             travel_time = (distance / speed) * 60 + 0.5
             graph.add_edge(site_id_a, site_id_b, weight=travel_time)
             added_edges.add(edge)
     
-    # Log missing edges for debugging
     if missing_edges:
         print(f"Missing edges due to absent nodes: {missing_edges}")
     

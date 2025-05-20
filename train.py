@@ -32,6 +32,20 @@ class GRUModel(nn.Module):
         out, _ = self.gru(x)
         out = self.fc(out[:, -1, :])
         return out
+    
+class FNNRegressor(nn.Module):
+    def __init__(self, input_dim):
+        super(FNNRegressor, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        return self.model(x)
 
 def train_model(model, X_train, y_train, X_test, y_test, scaler, locations, scats_numbers, epochs=50, batch_size=32, patience=10):
     criterion = nn.MSELoss()
@@ -51,15 +65,15 @@ def train_model(model, X_train, y_train, X_test, y_test, scaler, locations, scat
             mse_loss = criterion(outputs, batch_y)
             
             predicted_flows = scaler.inverse_transform(outputs.detach().numpy())
+            predicted_flows_avg = predicted_flows.mean(axis=0)
             from parse_train import create_traffic_network
-            G = create_traffic_network(locations, scats_numbers, predicted_flows, scats_numbers)
+            G = create_traffic_network(locations, scats_numbers, predicted_flows_avg, scats_numbers)
             nodes = {int(scats): (lat, lon) for scats, lat, lon in locations}
 
             graph_dict = {int(node): [(int(neighbor), G[node][neighbor]['weight']) for neighbor in G.neighbors(node)] for node in G.nodes}
             _, _, _, path_cost = astar(graph_dict, nodes, int(scats_numbers[0]), [int(scats_numbers[-1])], heuristic="E")
             path_loss = torch.tensor(float(path_cost) if path_cost is not None else 0.0, requires_grad=True)
 
-            
             loss = mse_loss + 0.1 * path_loss
             
             optimizer.zero_grad()
