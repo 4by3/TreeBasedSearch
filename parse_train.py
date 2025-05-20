@@ -53,11 +53,33 @@ def load_and_process_data(file_path, sheet_name='Data', header=1):
     volume_columns = [col for col in df.columns if col.startswith('V')]
     if not volume_columns:
         raise ValueError("No traffic volume columns (V00-V95) found in the dataset.")
-    traffic_data = df[volume_columns].values
     
-    df['SCATS Number'] = df['SCATS Number'].astype(int)
+    
+     # Set Date as index for time series operations
+    df.set_index(date_col, inplace=True)
+    
+    # 1. Reindex to a complete time index (assuming 15 min frequency)
+    full_time_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='15T')
+    df = df.reindex(full_time_index)
+    
+    # 2. Interpolate missing traffic volume data
+    df[volume_columns] = df[volume_columns].interpolate(method='time')
+    
+    # 3. Downsample to every 2 hours (e.g., mean traffic volume)
+    df_downsampled = df[volume_columns].resample('2H').mean()
+    
+    # Prepare output variables as before, but from downsampled data
+    traffic_data = df_downsampled.values
+
+
+    '''df['SCATS Number'] = df['SCATS Number'].astype(int)
     locations = df[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].values
-    scats_numbers = df['SCATS Number'].values
+    scats_numbers = df['SCATS Number'].values '''
+
+    # For locations and scats_numbers, use original since locations won't change
+    df_locations = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
+    locations = df_locations[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].drop_duplicates().values
+    scats_numbers = df_locations['SCATS Number'].drop_duplicates().values.astype(int)
     
     return traffic_data, locations, scats_numbers
 
