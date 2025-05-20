@@ -120,12 +120,15 @@ class GUI:
             return
         
         if not ml:
-            messagebox.showwarning("Warning", "Please select a model:")
+            messagebox.showwarning("Warning", "Please select a model")
             return
 
         if origin == dest:
             messagebox.showwarning("Warning", "Origin & Destination are the same")
             return
+        
+        if not time:
+            messagebox.showwarning("Warning", "Please select a time")
         
 
         main(file_path, origin, dest, ml, time)
