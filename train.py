@@ -32,20 +32,25 @@ class GRUModel(nn.Module):
         out, _ = self.gru(x)
         out = self.fc(out[:, -1, :])
         return out
-    
+
 class FNNRegressor(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_size, hidden_size, look_back, output_size):
         super(FNNRegressor, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_dim, 64),
+        self.input_size = input_size
+        self.look_back = look_back
+        # Flatten the input (look_back * input_size)
+        self.fc = nn.Sequential(
+            nn.Linear(input_size * look_back, hidden_size),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(hidden_size, 25),
             nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(25, output_size)
         )
 
     def forward(self, x):
-        return self.model(x)
+        batch_size = x.size(0)
+        x = x.view(batch_size, -1) 
+        return self.fc(x)
 
 def train_model(model, X_train, y_train, X_test, y_test, scaler, locations, scats_numbers, epochs=50, batch_size=32, patience=10):
     criterion = nn.MSELoss()
