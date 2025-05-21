@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 def train_selected_model(traffic_data, locations, scats_numbers, ml, look_back=4):
     # Prepare data for all models (LSTM, GRU, FNN)
     X_train, y_train, X_test, y_test, scaler = prepare_time_series_data(traffic_data, look_back)
-    
+
     input_size = X_train.shape[2]  # Single feature
     hidden_size = 50
     num_layers = 2
     output_size = X_train.shape[2]
-    
+
     if ml == "LSTM":
         print("Training LSTM...")
         model = LSTMModel(input_size, hidden_size, num_layers, output_size)
@@ -33,7 +33,7 @@ def train_selected_model(traffic_data, locations, scats_numbers, ml, look_back=4
         return model, scaler, X_train, y_train, X_test, y_test, None
     elif ml == "FNN":
         print("Training FNN...")
-        model = FNNRegressor(input_size, hidden_size, look_back, output_size)
+        model = FNNRegressor(input_size, hidden_size, num_layers, output_size)  # fixed arg names to match class
         loss = train_model(model, X_train, y_train, X_test, y_test, scaler, locations, scats_numbers)
         return model, scaler, X_train, y_train, X_test, y_test, None
     else:
@@ -48,29 +48,33 @@ def find_optimal_paths(G, nodes, origin, destination, model, scaler, ml, traffic
     if destination not in G.nodes:
         print(f"Error: Destination {destination} not found in the graph.")
         return []
-    
+
     if not nx.has_path(G, origin, destination):
         print(f"Error: No path exists between {origin} and {destination}.")
         return []
-    
+
     # Create a copy of the graph to modify weights
     G = G.copy()
-    
+
     # Prepare input for ML model to predict edge weights
     if len(traffic_data) < look_back:
         print(f"Error: Not enough data for look_back={look_back}. Traffic data length: {len(traffic_data)}")
         return []
-    
+
     scaler = MinMaxScaler() if scaler is None else scaler
-    scaled_data = scaler.fit_transform(traffic_data.reshape(-1, 1))
+    scaled_data = scaler.fit_transform(traffic_data)
+
+    if scaled_data.ndim == 1:
+        scaled_data = scaled_data.reshape(-1, 1)
+
     X = scaled_data[-look_back:].reshape(1, look_back, 1)  # Shape: (1, look_back, 1)
     X_tensor = torch.FloatTensor(X)
-    
+
     model.eval()
     with torch.no_grad():
         predictions = model(X_tensor).numpy()  # Predicted traffic flow
         predicted_flow = scaler.inverse_transform(predictions)[0]  # Inverse transform to original scale
-    
+
     # Update edge weights in the graph using ML predictions
     for u, v in G.edges():
         try:
@@ -81,7 +85,7 @@ def find_optimal_paths(G, nodes, origin, destination, model, scaler, ml, traffic
         except (IndexError, ValueError) as e:
             print(f"Warning: Could not update weight for edge ({u}, {v}): {e}")
             continue
-    
+
     paths = []
     for i in range(num_paths):
         try:
@@ -90,7 +94,7 @@ def find_optimal_paths(G, nodes, origin, destination, model, scaler, ml, traffic
             # Calculate total travel time for the path
             travel_time = sum(G[path[j]][path[j+1]]['weight'] for j in range(len(path)-1))
             paths.append({'path': [int(node) for node in path], 'travel_time': travel_time})
-            
+
             # Temporarily increase weights to diversify paths
             for j in range(len(path)-1):
                 u, v = path[j], path[j+1]
@@ -99,7 +103,7 @@ def find_optimal_paths(G, nodes, origin, destination, model, scaler, ml, traffic
         except nx.NetworkXNoPath:
             print(f"No more paths found after {i} paths.")
             break
-    
+
     return paths
 
 def main(file_path, origin, destination, ml, time):
