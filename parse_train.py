@@ -156,7 +156,7 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
     
     edge_dict = {
         4063: [4057, 4034, 2200, 3127],
-        2820: [3662, 4321, 2827, 2825], #2827 & 2825 are part of the freeway
+        2820: [3662, 4321], #2827 & 2825 are part of the freeway, maybe add
         3682: [3126, 3804, 2000],
         3002: [3001, 3662, 4263],
         3180: [4051, 4057],
@@ -170,12 +170,12 @@ def create_traffic_network(locations, site_ids, predicted_flows, all_site_ids):
         3662: [2820, 4335, 4324, 3002, 3001],
         4270: [4812, 4264, 4272],
         4030: [2825, 4051, 4321, 4032],
-        2825: [4030, 2820], #2820 can be accessed via freeway
+        2825: [4030], #2820 can be accessed via freeway, maybe add
         3126: [3127, 3682],
         2000: [3685, 4043, 3682],
         4273: [4043, 4272],
         4812: [4270],
-        2827: [4051, 2820], #2820 can connect via freeway
+        2827: [4051], #2820 can connect via freeway, maybe add
         4035: [4034, 3120],
         4262: [4263, 3001],
         4324: [3662, 4034, 4264],
