@@ -99,6 +99,7 @@ class GUI:
         
         # Display paths in GUI
         self.result_text.delete(1.0, tk.END)
+        
         if not paths:
             self.result_text.insert(tk.END, "No valid paths found.")
         else:
