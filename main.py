@@ -230,13 +230,14 @@ def plot_traffic_network(paths):
     actual_nodes = []
     for Scat, (lon, lat) in accurate_coords.items():
         try:
-            
             node_id = ox.distance.nearest_nodes(Boroondoora, X = lon, Y = lat)
             actual_nodes.append(node_id)
             scats_id.append(str(Scat))
 
         except Exception as e:
             print(f"Skipping {Scat}: {e}")
+
+    
 
 
     fig, ax = ox.plot_graph(

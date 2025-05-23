@@ -6,34 +6,34 @@ import sys
 
 class GUI:
     def __init__(self):
-        self.ran = False
+
         self.root = tk.Tk()
         self.root.title("TBRGS")
         self.root.geometry("1000x1000")
 
-        self.title = tk.Label(self.root, text="TBRGS", font=("Arial", 30))
-        self.title.pack(side="top", padx=20, pady=20)
+        self.frame = tk.LabelFrame(self.root, text="TBRGS", font=("Arial", 10))
+        self.frame.pack(side="top", fill="x", padx= 10)
 
         self.choices = [4063, 2820, 3682, 3002, 3180, 2200, 4264, 3812, 4272, 4263, 2846, 4821, 3662, 4270, 4030, 2825, 3126, 2000, 4273, 4812, 2827, 4035, 4262, 4324, 970, 3122, 4034, 4051, 4057, 3127, 3685, 4043, 3001, 4321, 4032, 4040, 3804, 3120, 4335, 4266]
 
-        self.originlbl = tk.Label(self.root, text='Select Origin:')
-        self.originlbl.pack()
-        self.origin_dd = ttk.Combobox(self.root, values=self.choices)
-        self.origin_dd.pack()
+        self.originlbl = tk.Label(self.frame, text='Select Origin:')
+        self.originlbl.grid(row=0, column=0,padx=3)
+        self.origin_dd = ttk.Combobox(self.frame, values=self.choices)
+        self.origin_dd.grid(row=1, column=0,padx=3)
 
-        self.destlbl = tk.Label(self.root, text='Select Destination:')
-        self.destlbl.pack()
-        self.dest_dd = ttk.Combobox(self.root, values=self.choices)
-        self.dest_dd.pack()
+        self.destlbl = tk.Label(self.frame, text='Select Destination:')
+        self.destlbl.grid(row=2, column=0,padx=3)
+        self.dest_dd = ttk.Combobox(self.frame, values=self.choices)
+        self.dest_dd.grid(row=3, column=0,padx=3)
 
-        self.MLlbl = tk.Label(self.root, text='Select ML Model:')
-        self.MLlbl.pack()
-        self.ML_dd = ttk.Combobox(self.root, values=["LSTM", "GRU", "FNN"])
-        self.ML_dd.pack()
+        self.MLlbl = tk.Label(self.frame, text='Select ML Model:')
+        self.MLlbl.grid(row=0, column=1,padx=3)
+        self.ML_dd = ttk.Combobox(self.frame, values=["LSTM", "GRU", "FNN"])
+        self.ML_dd.grid(row=1, column=1,padx=3)
 
-        self.Timelbl = tk.Label(self.root, text='Select Time:')
-        self.Timelbl.pack()
-        self.Time_dd = ttk.Combobox(self.root, values=[
+        self.Timelbl = tk.Label(self.frame, text='Select Time:')
+        self.Timelbl.grid(row=2, column=1,padx=3)
+        self.Time_dd = ttk.Combobox(self.frame, values=[
             "00:00", "00:15", "00:30", "00:45",
             "01:00", "01:15", "01:30", "01:45",
             "02:00", "02:15", "02:30", "02:45",
@@ -59,18 +59,27 @@ class GUI:
             "22:00", "22:15", "22:30", "22:45",
             "23:00", "23:15", "23:30", "23:45"
         ])
-        self.Time_dd.pack()
+        self.Time_dd.grid(row=3, column=1,padx=3)
 
-        self.ConfirmBtn = tk.Button(self.root, text="Run", font=("Arial", 15), command=self.RunMain)
-        self.ConfirmBtn.pack(side="bottom", padx=20, pady=100)
+        self.ConfirmBtn = tk.Button(self.frame, text="Run", font=("Arial", 10), command=self.RunMain)
+        self.ConfirmBtn.grid(row=4, column=1,padx=3)
 
-        self.default_map = Image.open("default_map.png").resize((600,600))
-        self.default_map = ImageTk.PhotoImage(self.default_map)
-        self.resultImglbl = tk.Label(self.root, image=self.default_map)
-        self.resultImglbl.pack(side="bottom", pady=20)
+        #Frame for image
+        self.image_frame = tk.Frame(self.root)
+        self.image_frame.pack(fill="both", expand=True)
 
-        self.result_text = tk.Text(self.root, height=10, width=50)
-        self.result_text.pack(side="bottom", pady=20)
+        self.original_img = Image.open("default_map.png")
+        self.tk_img = None
+        #self.tk_img will be used to store the resized image (always updating)
+
+        self.resultImglbl = tk.Label(self.image_frame)
+        self.resultImglbl.pack(fill="both", expand=True)
+
+        #when window is resized, this will send the window dimensions to the resize_image() function
+        self.image_frame.bind("<Configure>", self.resize_image)
+
+        self.result_text = tk.Text(self.frame, height=9, width=50)
+        self.result_text.grid(row=0, column=2, rowspan=5 , padx=3)
 
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.mainloop()
@@ -109,15 +118,38 @@ class GUI:
                 self.result_text.insert(tk.END, f"Route {i}: {' -> '.join(map(str, path))}\n")
                 self.result_text.insert(tk.END, f"Travel time: {travel_time:.2f} minutes\n\n")
         
-        self.showImage()
+        self.original_img = Image.open("traffic_network.png")
+        self.resize_image()
         return
 
-    def showImage(self):
-        resultImg = Image.open("traffic_network.png").resize((600,600))
-        resultImg = ImageTk.PhotoImage(resultImg)
-        self.resultImglbl.config(image=resultImg)
-        self.resultImglbl.image = resultImg
-        return
+    def resize_image(self, event=None):
+
+        #getting frame's dimensions
+        frame_width = self.image_frame.winfo_width()
+        frame_height = self.image_frame.winfo_height()
+
+        #Prevent program from breaking if image is not found in directory
+        if not self.original_img:
+            return
+        
+        #Prevent program from breaking if window is resized so that the image is not seen:
+        if( frame_width <= 0 or frame_height <= 0 ):
+            return
+
+        # Original image dimensions
+        img_width, img_height = self.original_img.size
+
+        # Scaling the image without ruining aspect ratio
+        scale = min(frame_width / img_width, frame_height / img_height)
+        new_width = int(img_width * scale)
+        new_height = int(img_height * scale)
+
+        resized_img = self.original_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        self.tk_img = ImageTk.PhotoImage(resized_img)
+
+        # Update result image label in main with resized image
+        self.resultImglbl.config(image=self.tk_img)
+        self.resultImglbl.image = self.tk_img
     
     def close(self):
         self.root.destroy()
