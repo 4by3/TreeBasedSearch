@@ -7,7 +7,12 @@ import math
 from pathlib import Path
 from datetime import datetime
 
-def load_and_process_data(file_path, time_str, sheet_name='Data', header=1):
+def load_and_process_data(file_path, time_str, sheet_name='Data', summary_sheet='Summary Of Data', header=1):
+    import pandas as pd
+    import numpy as np
+    from pathlib import Path
+    from datetime import datetime
+    
     if not Path(file_path).exists():
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
     
@@ -19,82 +24,129 @@ def load_and_process_data(file_path, time_str, sheet_name='Data', header=1):
     else:
         raise ValueError(f"Unsupported file extension: {file_ext}. Use .xls or .xlsx.")
     
-    # Load header row (row 0) to get time labels
-    try:
-        df_header = pd.read_excel(file_path, engine=engine, sheet_name=sheet_name, header=0, nrows=1)
-    except Exception as e:
-        print(f"Error reading Excel file header: {e}")
-        raise
-    
-    # Convert input time string to datetime.time object
-    try:
-        time_clean = datetime.strptime(time_str, '%H:%M').time()
-    except ValueError as e:
-        raise ValueError(f"Invalid time format: {time_str}. Expected format: 'HH:MM'") from e
-    
-    # Check if the time exists in the DataFrame columns
-    if time_clean not in df_header.columns:
-        raise ValueError(f"Time {time_clean} not found in Excel header. Available times: {df_header.columns.tolist()}")
-    
-    # Map datetime.time to corresponding VXX column
-    time_index = list(df_header.columns).index(time_clean)
-    if time_index < 10:
-        raise ValueError(f"Time {time_clean} does not correspond to a volume column (index {time_index} is before 'Start Time').")
-    volume_col = f"V{time_index - 10:02d}"  # Adjust for 'Start Time' and other non-time columns
-    
-    # Load data with header=1
     try:
         df = pd.read_excel(file_path, engine=engine, sheet_name=sheet_name, header=header)
+        summary_df = pd.read_excel(file_path, engine=engine, sheet_name=summary_sheet, skiprows=3)
     except Exception as e:
-        print(f"Error reading Excel file data: {e}")
+        print(f"Error reading Excel file: {e}")
         raise
     
-    required_columns = ['SCATS Number', 'Date', 'NB_LATITUDE', 'NB_LONGITUDE']
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise KeyError(f"Missing required columns: {missing_columns}. Available columns: {df.columns.tolist()}")
+    # Debug: Print summary sheet columns and first 5 rows
+    print(f"Summary sheet columns: {list(summary_df.columns)}")
+    print(f"Summary sheet first 5 rows:\n{summary_df.head().to_string()}")
     
-    if volume_col not in df.columns:
-        raise ValueError(f"Volume column {volume_col} not found in the dataset. Available columns: {df.columns.tolist()}")
-    
-    date_col = None
-    for col in df.columns:
-        if col.lower().strip() == 'date':
-            date_col = col
+    # Find SCATS Number and Total columns
+    scats_col = None
+    for col in summary_df.columns:
+        if 'scats' in col.lower() and 'number' in col.lower():
+            scats_col = col
             break
+    if scats_col is None:
+        summary_df.columns = ['SCATS Number', 'Location', 'Total', 'Unnamed: 3', 'Unnamed: 4', 'Unnamed: 5']
+        scats_col = 'SCATS Number'
+        print("Assigned manual column names: ['SCATS Number', 'Location', 'Total', ...]")
     
-    if date_col is None:
-        raise KeyError("No 'Date' column found in the dataset. Available columns: " + str(df.columns.tolist()))
+    total_col = 'Total' if 'Total' in summary_df.columns else summary_df.columns[summary_df.columns.str.contains('Total', case=False, na=False)].tolist()[0]
     
-    if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
-        try:
-            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-            if df[date_col].isna().any():
-                raise ValueError("Some dates could not be parsed.")
-        except Exception as e:
-            print(f"Error converting Date column: {e}")
-            raise
+    # Fill NaN values in SCATS Number
+    summary_df[scats_col] = summary_df[scats_col].ffill().astype(int)
     
-    df = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
-    df = df[df['NB_LATITUDE'].between(-90, 90) & df['NB_LONGITUDE'].between(-180, 180)]
+    # Get valid SCATS numbers and total valid days
+    valid_scats = summary_df[scats_col].dropna().astype(int).unique()
+    scats_days = {}
+    for scats in valid_scats:
+        total_days = summary_df[summary_df[scats_col] == scats][total_col].sum()
+        if total_days > 0:
+            scats_days[scats] = int(total_days)
     
-    df.set_index(date_col, inplace=True)
-    df_numeric = df[[volume_col]]
-    df_numeric = df_numeric.groupby(df_numeric.index).mean()
+    # Extract coordinates (first per SCATS number)
+    locations = df[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].drop_duplicates()
+    locations = locations.rename(columns={'SCATS Number': 'scats_number', 'NB_LATITUDE': 'latitude', 'NB_LONGITUDE': 'longitude'})
+    locations = locations[locations['scats_number'].notna() & locations['scats_number'].isin(valid_scats)]
+    locations['scats_number'] = locations['scats_number'].astype(int)
+    locations = locations.groupby('scats_number').first().reset_index()[['scats_number', 'latitude', 'longitude']].values.tolist()
     
-    full_time_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='15min')
-    df_numeric = df_numeric.reindex(full_time_index)
-    df_numeric = df_numeric.interpolate(method='time')
+    scats_numbers = np.array([int(loc[0]) for loc in locations])
     
-    # Extract traffic data for the specified time column
-    traffic_data = df_numeric[volume_col].values
-    print(f"Selected time: {time_str}, Volume column: {volume_col}, Traffic data shape: {traffic_data.shape}, Sample: {traffic_data[:5]}")
+    # Map time_str to column name
+    try:
+        time_obj = datetime.strptime(time_str, '%H:%M')
+        time_index = int((time_obj.hour * 60 + time_obj.minute) / 15)
+        time_column = f'V{time_index:02d}'
+    except ValueError:
+        raise ValueError(f"Invalid time format: {time_str}. Use HH:MM (e.g., '0:00').")
     
-    df_locations = df.dropna(subset=['NB_LATITUDE', 'NB_LONGITUDE'])
-    locations = df_locations[['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE']].drop_duplicates().values
-    scats_numbers = df_locations['SCATS Number'].drop_duplicates().values.astype(int)
+    # Verify time column exists
+    if time_column not in df.columns:
+        raise ValueError(f"Time column {time_column} not found in data. Available columns: {list(df.columns)}")
     
-    return traffic_data, locations, scats_numbers
+    flow_columns = [f'V{i:02d}' for i in range(96)]
+    if not all(col in df.columns for col in flow_columns):
+        missing = [col for col in flow_columns if col not in df.columns]
+        raise ValueError(f"Missing flow columns: {missing}")
+    
+    # Select SCATS Number, Date, time_column, and flow_columns
+    columns_to_select = ['SCATS Number', 'Date', time_column] + flow_columns
+    # Remove duplicates in columns_to_select
+    columns_to_select = list(dict.fromkeys(columns_to_select))
+    traffic_data = df[df['SCATS Number'].isin(scats_numbers)][columns_to_select]
+    traffic_data['SCATS Number'] = traffic_data['SCATS Number'].astype(int)
+    
+    # Debug: Print traffic_data shape and columns
+    print(f"traffic_data shape: {traffic_data.shape}")
+    print(f"traffic_data columns: {list(traffic_data.columns)}")
+    
+    # Scale flows to hourly (multiply by 4)
+    traffic_data[time_column] = traffic_data[time_column].mul(4, fill_value=0)
+    traffic_data[flow_columns] = traffic_data[flow_columns].mul(4, fill_value=0)
+    
+    # Filter by valid days
+    traffic_data['Date'] = pd.to_datetime(traffic_data['Date'], errors='coerce')
+    valid_traffic_data = []
+    for scats in scats_numbers:
+        scats_data = traffic_data[traffic_data['SCATS Number'] == scats]
+        if scats in scats_days:
+            valid_days = sorted(scats_data['Date'].dt.strftime('%-m/%-d/%y').dropna().unique())[:scats_days[scats]]
+            scats_data = scats_data[scats_data['Date'].dt.strftime('%-m/%-d/%y').isin(valid_days)]
+        valid_traffic_data.append(scats_data)
+    traffic_data = pd.concat(valid_traffic_data, ignore_index=True)
+    
+    # Average time-specific flows per SCATS number
+    time_specific_flow = traffic_data.groupby('SCATS Number')[time_column].mean().reset_index()
+    time_specific_flow = time_specific_flow[time_specific_flow['SCATS Number'].isin(scats_numbers)]
+    
+    # Prepare time-series data (averaged flows for all time columns)
+    traffic_data_series = traffic_data.groupby('SCATS Number')[flow_columns].mean().reset_index()
+    
+    max_days = 31
+    timesteps_per_day = 96
+    max_timesteps = max_days * timesteps_per_day
+    site_traffic_data = []
+    for scats in scats_numbers:
+        site_data = traffic_data_series[traffic_data_series['SCATS Number'] == scats][flow_columns].values
+        if site_data.shape[0] > 0:
+            flattened_data = site_data.flatten()
+            if len(flattened_data) < max_timesteps:
+                padded_data = np.pad(flattened_data, (0, max_timesteps - len(flattened_data)), mode='constant', constant_values=0)
+                site_traffic_data.append(padded_data)
+            else:
+                site_traffic_data.append(flattened_data[:max_timesteps])
+        else:
+            site_traffic_data.append(np.zeros(max_timesteps))
+    
+    site_traffic_data = np.array(site_traffic_data)
+    print(f"Site traffic data shape: {site_traffic_data.shape}")
+    
+    # Create traffic flows array
+    traffic_flows = np.zeros(len(scats_numbers))
+    for i, scats in enumerate(scats_numbers):
+        flow = time_specific_flow[time_specific_flow['SCATS Number'] == scats][time_column]
+        traffic_flows[i] = flow.values[0] if not flow.empty else 0.0
+    
+    # Debug: Print time-specific flows
+    print(f"Time-specific flows for {time_str}:\n{time_specific_flow.to_string()}")
+    
+    return site_traffic_data, locations, scats_numbers, traffic_flows
 
 def prepare_time_series_data(data, look_back=4):
     scaler = MinMaxScaler()
